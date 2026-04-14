@@ -1,5 +1,51 @@
 #!/usr/bin/env zsh
 
+
+die_with_code () {
+  # Usage:
+  #   some_command ... ; die_with_code /path/to/log
+  #   some_command ... ; die_with_code /path/to/log "extra message"
+  #   die_with_code /path/to/log "msg" 42   # explicit code override (optional)
+  #
+  # Behavior:
+  #   - If last exit code is 0: return 0 (do nothing)
+  #   - Otherwise: print error + code, print log (if readable), exit with code
+
+  local log_file="${1:-}"
+  local extra_msg="${2:-}"
+  local code
+
+  # Optional explicit code override as 3rd arg; otherwise take $?
+  if [[ -n "${3:-}" ]]; then
+    code="$3"
+  else
+    code="$?"
+  fi
+
+  # If success, do nothing
+  (( code == 0 )) && return 0
+
+  # Error header
+  if [[ -n "$extra_msg" ]]; then
+    print -u2 -- "ERROR: ${extra_msg} (exit code: ${code})"
+  else
+    print -u2 -- "ERROR: command failed (exit code: ${code})"
+  fi
+
+  # Dump log if provided
+  if [[ -n "$log_file" ]]; then
+    if [[ -r "$log_file" ]]; then
+      print -u2 -- "----- BEGIN LOG: $log_file -----"
+      cat -- "$log_file" >&2
+      print -u2 -- "----- END LOG: $log_file -----"
+    else
+      print -u2 -- "NOTE: log file not readable: $log_file"
+    fi
+  fi
+
+  exit "$code"
+}
+
 DetectorDirNotExisting() {
 	echo "System directory: $system not existing"
 	exit 3
@@ -91,24 +137,26 @@ variations_for_run_and_system()  {
 		echo "rgf_spring2020"
 	elif [[ $1 == "12321" ]]; then
 		echo "rgf_summer2020"
-	elif [[ $1 == "15016" || $1 == "15534" ]]; then
+	elif [[ $1 == "15016" || $1 == "15534" || $1 == "15628" ]]; then
 		echo "rgm_fall2021_H"
 	elif [[ $1 == "15043" || $1 == "15434" || $1 == "15566" ]]; then
 		echo "rgm_fall2021_D"
 	elif [[ $1 == "15108" || $1 == "15458" ]]; then
 		echo "rgm_fall2021_He"
-	elif [[ $1 == "15178" || $1 == "15643" || $1 == "15733" || $1 == "15766" || $1 == "15778" ]]; then
-		echo "rgm_fall2021_C"
-	elif [[ $1 == "18305" ]]; then
-		echo "rgm_fall2021_C"
-	elif [[ $1 == "22000" ]]; then
+	elif [[ $1 == "15643" || $1 == "15733" ]]; then
+		echo "rgm_fall2021_C_S"
+	elif [[ $1 == "15766" || $1 == "15778" ]]; then
+		echo "rgm_fall2021_C_L"
+	elif [[ $1 == "15671" || $1 == "15734" || $1 == "15789" ]]; then
+		echo "rgm_fall2021_Ar"
+	elif [[ $1 == "15178" ]]; then
 		echo "rgm_fall2021_Cx4"
 	elif [[ $1 == "15356" || $1 == "15829" ]]; then
 		echo "rgm_fall2021_Ca"
-	elif [[ $1 == "15318" || $1 == "15804" ]]; then
-		echo "rgm_fall2021_Sn"
-	elif [[ $1 == "15807" ]]; then
+	elif [[ $1 == "15318" ]]; then
 		echo "rgm_fall2021_Snx4"
+	elif [[ $1 == "15804" ]]; then
+		echo "rgm_fall2021_Sn_L"
 	elif [[ $1 == "16000" ]]; then
 		echo "rgc_summer2022"
 	elif [[ $1 == "16843" ]]; then
@@ -161,15 +209,18 @@ variations_for_run_and_system()  {
 
 # if we are in the docker container, we need to load the modules
 if [[ -z "${AUTOBUILD}" ]]; then
-	echo "\nNot in container"
+	echo "\nNot in container, loading gemc/dev - assuing we are on a mac with homebrew modules"
+	source /opt/homebrew/opt/modules/init/zsh
+	module purge
+	module load gemc/dev
+	echo
 else
-	echo "\nIn docker container."
+	echo "\nIn docker container, sourcing local setup and loading gemc, ccdb and hipo"
 	if [[ -n "${GITHUB_WORKFLOW}" ]]; then
 		echo "GITHUB_WORKFLOW: ${GITHUB_WORKFLOW}"
 	fi
 	source /etc/profile.d/localSetup.sh
 	module switch gemc/dev
-
 	module load hipo
 	module load ccdb
 	echo
@@ -182,8 +233,10 @@ else
 
 	export GEMC=$(pwd)
 	export GEMC_DATA_DIR=$GEMC
+	if [[ ! -d "$GEMC/bin" ]]; then
+		mkdir -p "$GEMC/bin"
+	fi
 	echo "Setting GEMC and GEMC_DATA_DIR to this directory: $GEMC"
-	export PATH=$GEMC/bin:$PATH
 	export ARTIFACT_DIR=/cvmfs/oasis.opensciencegrid.org/jlab/geant4
 
 fi

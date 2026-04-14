@@ -17,48 +17,65 @@ fi
 
 
 function compile_gemc {
+
+	build_log=gemc_build.log
+
 	cd source
 	# getting number of available CPUS
 	copt=" -j"$(getconf _NPROCESSORS_ONLN)" OPT=1"
 	echo
 	echo Compiling GEMC with options: "$copt" "$debug"
-	echo START_GEMC_COMPILATION $(date) > gemc_build.log | tee -a gemc_build.log
-	echo Compiling GEMC with options: "$copt" "$debug" >> gemc_build.log | tee -a gemc_build.log
-	scons SHOWENV=1 SHOWBUILD=1 "$=copt" "$=debug" &>> gemc_build.log
+	echo START_GEMC_COMPILATION $(date) | tee $build_log
+	echo Compiling GEMC with options: "$copt" "$debug" | tee -a $build_log
+	scons SHOWENV=1 SHOWBUILD=1 "$=copt" "$=debug" >> $build_log
 	if [ $? -ne 0 ]; then
 		echo "scons failed. Log: "
-		cat gemc_build.log
+		cat $build_log
 		exit 1
 	fi
-	echo END_GEMC_COMPILATION $(date) >> gemc_build.log | tee -a gemc_build.log
+	echo END_GEMC_COMPILATION $(date) | tee -a $build_log
 	# checking existence of executable
 	echo "Created executable: " $(ls gemc)
 
-	cp gemc $GEMC/bin
+	gemc_exe=$GEMC/bin/gemc
+	cp gemc $gemc_exe
 	cd ..
-	echo "Copying gemc to $GEMC/bin for CI"
+	echo "Copying gemc to $gemc_exe for CI"
+
+
+	echo "GEMC: "$GEMC
+	echo "Executable is $gemc_exe :"
+	echo
+	ls -l $gemc_exe
+	echo
+	echo "gemc: " $(which gemc)
+
 }
 
 function create_geo_dbs {
+	geo_log=geo_build.log
+
 	echo
 	echo "Creating all geometry databases with: create_geometry.sh"
-	echo START_CREATE_GEOMETRY $(date) > geo_build.log | tee -a geo_build.log
-	./create_geometry.sh &>> geo_build.log
-	ls -lrt > geo_build.log | tee -a geo_build.log
+	echo START_CREATE_GEOMETRY $(date) | tee $geo_log
+	./create_geometry.sh | tee -a $geo_log
+	ls -lrt | tee -a $geo_log
 	if [ $? -ne 0 ]; then
 		echo "create_geometry failed. Log:"
-		cat geo_build.log
+		cat $geo_log
 		exit 1
 	fi
 
-	echo "Copying experiments ASCII DB and sqlite file to $ARTIFACT_DIR for CI"
-	cp -r experiments clas12.sqlite source/gemc_build.log geo_build.log geometry_source/build_coatjava.log $ARTIFACT_DIR
-
 	echo
 	echo "Changes after creation:"
-	git branch ; git status -s >> geo_build.log | tee -a geo_build.log
-	echo END_CREATE_GEOMETRY $(date) >> geo_build.log | tee -a geo_build.log
+	echo END_CREATE_GEOMETRY $(date) | tee -a $geo_log
+	git branch ; git status -s | tee -a $geo_log
 
+	echo Final experiments/clas12 content | tee -a $geo_log
+	ls -R experiments/clas12 | tee -a $geo_log
+
+	echo "Copying experiments ASCII DB and sqlite file to $ARTIFACT_DIR for CI"
+	cp -r experiments clas12.sqlite source/gemc_build.log geo_build.log geometry_source/build_coatjava.log $ARTIFACT_DIR
 }
 
 compile_gemc
@@ -71,13 +88,14 @@ echo
 echo "Content of artifacts dir $ARTIFACT_DIR:"
 ls -lrt $ARTIFACT_DIR
 echo
-echo "Content of artifacts experiment dir $ARTIFACT_DIR/experiments/clas12:"
-ls -lrt $ARTIFACT_DIR/experiments/clas12
-echo
 # copying executable, api and sqlite database for artifact retrieval
-# the experiment dir is synced with the bin/cron_gemc_artifact_install_jlab.sh
-echo "Copying executable, api and sqlite database for artifact retrieval"
+echo "Copying executable, experiments, api, sqlite database and mlibrary for artifact retrieval"
 mkdir -p $ARTIFACT_DIR/bin
 cp source/gemc $ARTIFACT_DIR/bin
+cp -r experiments $ARTIFACT_DIR
 cp -r api $ARTIFACT_DIR
 cp clas12.sqlite $ARTIFACT_DIR
+# mlibrary
+mkdir -p $ARTIFACT_DIR/mlibrary/lib
+cp $MLIBRARY/lib/* $ARTIFACT_DIR/mlibrary/lib
+cp -r $MLIBRARY/frequencySyncSignal $MLIBRARY/options $MLIBRARY/include $ARTIFACT_DIR/mlibrary

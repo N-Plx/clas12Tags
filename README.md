@@ -279,24 +279,28 @@ gemc /scigroup/cvmfs/hallb/clas12/sw/noarch/clas12-config/dev/gemc/dev/rga_fall2
 
 ## Docker images
 
-Docker images for Almalinux, Fedora and Ubuntu based OS systems
+Docker images for Almalinux and Fedora  based OS systems
 are available on [DockerHub](https://hub.docker.com/repository/docker/jeffersonlab/gemc/general).
 
-- dev-ubuntu24
 - dev-fedora36
-- dev-fedora40
 - dev-almalinux94
 
 To run the docker image (for example dev-fedora):
 
-```
+```shell
 docker run -it --rm jeffersonlab/gemc:dev-almalinux94 bash
 ```
 
 On MacOS the additional option `--platform linux/amd64` is needed:
 
-```
+```shell
 docker run -it --rm --platform linux/amd64 jeffersonlab/gemc:dev-almalinux94 bash
+```
+
+For i/o to and from the image, you can include a mounting point by adding the `-v` option to the above command
+
+```shell
+-v ~/mywork:/usr/local/mywork 
 ```
 
 <br/>
